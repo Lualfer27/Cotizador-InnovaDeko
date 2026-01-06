@@ -1,0 +1,5 @@
+{
+  "name": "Generador de Cotizaciones",
+  "description": "A professional quotation generator app allowing users to create detailed quotes with client data, zones, products, and attachments, featuring a real-time preview.",
+  "requestFramePermissions": []
+}
