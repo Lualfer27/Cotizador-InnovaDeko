@@ -1,6 +1,15 @@
 
+export interface QuotationOption {
+  id: string;
+  name: string;
+  discountEnabled: boolean;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number | string;
+}
+
 export interface QuotationItem {
   id: string;
+  optionId?: string;
   zone: string;
   description: string;
   quantity: number;
@@ -22,8 +31,11 @@ export interface ClientData {
   quotationNoLabel: string;
   language: string;
   currency: string;
+  includeDecimals: boolean;
   terms: string;
   signatureText: string;
+  multipleOptions?: boolean;
+  quotationOptions?: QuotationOption[];
   discountEnabled: boolean;
   discountType: 'percentage' | 'fixed';
   discountValue: number | string;
@@ -54,6 +66,7 @@ export interface ClientData {
   showSellerSignature: boolean;
   clientSignatureText: string;
   showClientInfo: boolean;
+  showTotals: boolean;
 }
 
 export interface QuotationRecord {

@@ -1,6 +1,6 @@
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Plus, Tag, Building2, Upload, CreditCard, MessageSquare, Settings2, ScrollText, User, RefreshCcw, DollarSign, AlignLeft, AlignCenter, AlignRight, Heading1, Type, LayoutTemplate, ChevronDown, ChevronRight, FileImage, History, Search, Calendar, FolderOpen, Trash2, Eye, Signature, CreditCard as IDIcon, Edit2, Check, X, FilePlus, Percent, UserCheck } from 'lucide-react';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { Building2, Upload, CreditCard, MessageSquare, Settings2, ScrollText, User, RefreshCcw, DollarSign, AlignLeft, AlignCenter, AlignRight, Heading1, Type, LayoutTemplate, ChevronDown, ChevronRight, FileImage, History, Search, Calendar, FolderOpen, Trash2, Eye, Signature, CreditCard as IDIcon, Edit2, Check, X, FilePlus, Percent, UserCheck, Calculator, PlusCircle } from 'lucide-react';
 import { ClientData, QuotationItem, Attachment, QuotationRecord } from '../types';
 
 interface SidebarProps {
@@ -56,6 +56,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [attPreview, setAttPreview] = useState<string | null>(null);
   const [attFile, setAttFile] = useState<File | null>(null);
   
+  const [activeOptionId, setActiveOptionId] = useState<string>('opt1');
+
+  // Keep activeOptionId in sync if options are removed
+  useEffect(() => {
+    if (clientData.multipleOptions && clientData.quotationOptions && clientData.quotationOptions.length > 0) {
+      if (!clientData.quotationOptions.find(o => o.id === activeOptionId)) {
+        setActiveOptionId(clientData.quotationOptions[0].id);
+      }
+    }
+  }, [clientData.quotationOptions, clientData.multipleOptions, activeOptionId]);
+
   const [isHeaderCustomOpen, setIsHeaderCustomOpen] = useState(false);
   const [isTitleCustomOpen, setIsTitleCustomOpen] = useState(false);
   const [isSectionsOpen, setIsSectionsOpen] = useState(false);
@@ -65,10 +76,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [editingHistoryValue, setEditingHistoryValue] = useState('');
 
   const prefixOptions = useMemo(() => {
-    const opts = [t.general];
+    const opts = [t.general, 'SALA', 'HABITACIÓN 1', 'HABITACIÓN 2', 'BALCÓN', 'APARTAMENTO ENVIGADO', 'CASA DEL RETIRO'];
     for (let i = 0; i <= 15; i++) opts.push(`${t.floor} ${i}`);
     return opts;
   }, [t]);
+
+  const sitioOptions = ['NINGUNO', 'CASA 1', 'CASA 2'];
+  const [selectedSitio, setSelectedSitio] = useState(sitioOptions[0]);
 
   const [selectedPrefix, setSelectedPrefix] = useState(prefixOptions[0]);
 
@@ -77,14 +91,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleAddZone = () => {
     if (zoneSuffix.trim()) {
-      const full = `${selectedPrefix} > ${zoneSuffix.trim().toUpperCase()}`;
+      let full = '';
+      if (selectedSitio !== 'NINGUNO') {
+        full = `${selectedSitio} > ${selectedPrefix} > ${zoneSuffix.trim().toUpperCase()}`;
+      } else {
+        full = `${selectedPrefix} > ${zoneSuffix.trim().toUpperCase()}`;
+      }
       addZone(full); setZoneSuffix(''); setSelectedZone(full);
     }
   };
 
   const handleAddItem = () => {
     if (itemDesc.trim() && selectedZone) {
-      addItem({ zone: selectedZone, description: itemDesc, quantity: parseInt(itemQty) || 1, unitPrice: parseFloat(itemPrice) || 0 });
+      addItem({ 
+        zone: selectedZone, 
+        description: itemDesc, 
+        quantity: parseFloat(itemQty) || 1, 
+        unitPrice: parseFloat(itemPrice) || 0,
+        optionId: clientData.multipleOptions ? activeOptionId : undefined
+      });
       setItemDesc(''); setItemQty('1'); setItemPrice('');
     }
   };
@@ -311,73 +336,229 @@ const Sidebar: React.FC<SidebarProps> = ({
                    <input type="date" value={clientData.date} onChange={(e) => setClientData({...clientData, date: e.target.value})} className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none" />
                    <select value={clientData.language} onChange={(e) => onLanguageChange(e.target.value)} className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none"><option value="Español">Español</option><option value="Holandes">Holandes</option><option value="Papiamento">Papiamento</option><option value="Inglés">Inglés</option></select>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                  <div className="flex items-center gap-2">
                     <DollarSign size={14} className="text-slate-400"/><span className="text-xs font-bold text-slate-600 mr-auto">{t.currency}</span>
                     <select value={clientData.currency} onChange={(e) => setClientData({...clientData, currency: e.target.value})} className="bg-transparent text-sm font-bold text-slate-700 outline-none"><option value="USD">USD</option><option value="EUR">EUR</option><option value="COP">COP</option><option value="ANG">ANG</option><option value="Afl.">Afl.</option></select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                    <span className="text-xs font-bold text-slate-600 mr-auto">{clientData.language === 'Español' ? 'Incluir Decimales' : clientData.language === 'Inglés' ? 'Include Decimals' : clientData.language === 'Holandes' ? 'Inclusief Decimalen' : 'Inclui Decimalnan'}</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={clientData.includeDecimals} onChange={(e) => setClientData({...clientData, includeDecimals: e.target.checked})} />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                    </label>
+                  </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest"><span>Opciones de Cotización</span><div className="h-px bg-slate-100 flex-1"></div></div>
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <LayoutTemplate size={14} style={clientData.multipleOptions ? { color: BRAND_COLOR } : { color: '#94a3b8' }} />
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">Múltiples Opciones</span>
+                  </div>
+                  <button 
+                    onClick={() => setClientData({...clientData, multipleOptions: !clientData.multipleOptions})}
+                    className={`w-8 h-4 rounded-full relative transition-all ${clientData.multipleOptions ? 'bg-brand' : 'bg-slate-300'}`}
+                    style={clientData.multipleOptions ? { backgroundColor: BRAND_COLOR } : {}}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${clientData.multipleOptions ? 'left-4.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                
+                {clientData.multipleOptions && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-1 border-t border-slate-200 pt-4">
+                    <div className="space-y-4 pt-2">
+                       <span className="text-[10px] font-bold text-slate-500 uppercase">Configurar Opciones</span>
+                       {clientData.quotationOptions?.map((opt, idx) => (
+                          <div key={opt.id} className="bg-white p-3 rounded-lg border border-slate-200 space-y-3">
+                             <div className="flex gap-2 items-center">
+                               <input 
+                                 type="text" 
+                                 value={opt.name}
+                                 onChange={(e) => {
+                                   const newOpts = [...(clientData.quotationOptions||[])];
+                                   newOpts[idx].name = e.target.value;
+                                   setClientData({...clientData, quotationOptions: newOpts});
+                                 }}
+                                 className="flex-1 px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs font-bold font-brand uppercase outline-none"
+                               />
+                               {clientData.quotationOptions!.length > 1 && (
+                                  <button 
+                                    onClick={() => {
+                                      const newOpts = clientData.quotationOptions!.filter(o => o.id !== opt.id);
+                                      if (activeOptionId === opt.id) setActiveOptionId(newOpts[0].id);
+                                      setClientData({...clientData, quotationOptions: newOpts});
+                                    }}
+                                    className="text-red-400 hover:text-red-600 p-1"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                               )}
+                             </div>
+                             
+                             <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase">Habilitar Descuento</span>
+                                <button 
+                                  onClick={() => {
+                                     const newOpts = [...(clientData.quotationOptions||[])];
+                                     newOpts[idx].discountEnabled = !newOpts[idx].discountEnabled;
+                                     setClientData({...clientData, quotationOptions: newOpts});
+                                  }}
+                                  className={`w-6 h-3 rounded-full relative transition-all ${opt.discountEnabled ? 'bg-brand' : 'bg-slate-300'}`}
+                                  style={opt.discountEnabled ? { backgroundColor: BRAND_COLOR } : {}}
+                                >
+                                  <div className={`absolute top-0.5 w-2 h-2 bg-white rounded-full transition-all ${opt.discountEnabled ? 'left-3.5' : 'left-0.5'}`} />
+                                </button>
+                             </div>
+
+                             {opt.discountEnabled && (
+                                <div className="flex gap-2">
+                                  <select 
+                                    value={opt.discountType} 
+                                    onChange={(e) => {
+                                       const newOpts = [...(clientData.quotationOptions||[])];
+                                       newOpts[idx].discountType = e.target.value as any;
+                                       setClientData({...clientData, quotationOptions: newOpts});
+                                    }}
+                                    className="w-16 px-1 py-1 bg-slate-50 border border-slate-200 rounded text-[10px] font-bold outline-none uppercase"
+                                  >
+                                    <option value="percentage">%</option>
+                                    <option value="fixed">Fijo</option>
+                                  </select>
+                                  <input 
+                                    type="number" 
+                                    step="any"
+                                    value={opt.discountValue} 
+                                    onChange={(e) => {
+                                       const newOpts = [...(clientData.quotationOptions||[])];
+                                       newOpts[idx].discountValue = e.target.value as any;
+                                       setClientData({...clientData, quotationOptions: newOpts});
+                                    }}
+                                    placeholder="Valor" 
+                                    className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs outline-none" 
+                                  />
+                                </div>
+                             )}
+                          </div>
+                       ))}
+                       <button 
+                         onClick={() => {
+                           const newId = `opt_${Date.now()}`;
+                           setClientData({
+                             ...clientData, 
+                             quotationOptions: [...(clientData.quotationOptions||[]), { id: newId, name: `Opción ${(clientData.quotationOptions?.length||0) + 1}`, discountEnabled: false, discountType: 'percentage', discountValue: 0 }]
+                           });
+                         }}
+                         className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
+                       >
+                         <FilePlus size={14} /> Nueva Opción
+                       </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 
             <section className="border p-5 rounded-2xl space-y-4" style={{ backgroundColor: `${BRAND_COLOR}10`, borderColor: `${BRAND_COLOR}30` }}>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest" style={{ color: BRAND_COLOR }}><Building2 size={14}/><span>Zonas</span></div>
-              <div className="flex gap-2">
-                <select value={selectedPrefix} onChange={(e) => setSelectedPrefix(e.target.value)} className="w-24 px-2 py-2 bg-white border rounded-lg text-xs outline-none" style={{ borderColor: `${BRAND_COLOR}30` }}>{prefixOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
-                <input type="text" value={zoneSuffix} onChange={(e) => setZoneSuffix(e.target.value)} placeholder="Ej: Sala" className="flex-1 px-3 py-2 bg-white border rounded-lg text-xs outline-none" style={{ borderColor: `${BRAND_COLOR}30` }} />
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-600 w-16">SITIOS:</span>
+                  <select value={selectedSitio} onChange={(e) => setSelectedSitio(e.target.value)} className="flex-1 px-2 py-2 bg-white border rounded-lg text-xs outline-none" style={{ borderColor: `${BRAND_COLOR}30` }}>
+                    {sitioOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <select value={selectedPrefix} onChange={(e) => setSelectedPrefix(e.target.value)} className="w-24 px-2 py-2 bg-white border rounded-lg text-xs outline-none" style={{ borderColor: `${BRAND_COLOR}30` }}>{prefixOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
+                  <input type="text" value={zoneSuffix} onChange={(e) => setZoneSuffix(e.target.value)} placeholder="Ej: Sala" className="flex-1 px-3 py-2 bg-white border rounded-lg text-xs outline-none" style={{ borderColor: `${BRAND_COLOR}30` }} />
+                </div>
               </div>
-              <button onClick={handleAddZone} className="w-full py-2 text-white rounded-lg text-xs font-black transition-all shadow-md" style={{ backgroundColor: BRAND_COLOR, shadowColor: BRAND_COLOR }}>AÑADIR ZONA</button>
+              <button onClick={handleAddZone} className="w-full py-2 text-white rounded-lg text-xs font-black transition-all shadow-md" style={{ backgroundColor: BRAND_COLOR }}>AÑADIR ZONA</button>
             </section>
 
-            <section className="space-y-4">
-                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest"><span>Producto</span><div className="h-px bg-slate-100 flex-1"></div></div>
-                <div className="space-y-3">
-                    <select value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none">{zones.map(z => <option key={z} value={z}>{z}</option>)}</select>
-                    <input type="text" value={itemDesc} onChange={(e) => setItemDesc(e.target.value)} placeholder="Descripción" className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <input type="number" value={itemQty} onChange={(e) => setItemQty(e.target.value)} placeholder="Cant" className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none" />
-                        <input type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} placeholder="Precio" className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-sm outline-none" />
+            <section className="border p-5 rounded-2xl space-y-4 bg-white" style={{ borderColor: `${BRAND_COLOR}30`, boxShadow: `0 4px 20px -5px ${BRAND_COLOR}20` }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest" style={{ color: BRAND_COLOR }}><PlusCircle size={14}/><span>Añadir Producto</span></div>
+              </div>
+              <div className="flex flex-col gap-2 relative">
+                 {clientData.multipleOptions && (
+                   <select 
+                     value={activeOptionId}
+                     onChange={(e) => setActiveOptionId(e.target.value)}
+                     className="w-full px-3 py-2 mb-2 bg-indigo-50 border border-indigo-100 rounded-lg text-xs outline-none uppercase font-bold text-indigo-700"
+                   >
+                     {clientData.quotationOptions?.map(opt => (
+                       <option key={opt.id} value={opt.id}>Agregar a: {opt.name}</option>
+                     ))}
+                   </select>
+                 )}
+                 <select value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs outline-none uppercase font-bold text-slate-700">
+                    <option value="" disabled>SELECCIONAR ZONA</option>
+                    {zones.map(z => <option key={z} value={z}>{z}</option>)}
+                 </select>
+                 <textarea value={itemDesc} onChange={(e) => setItemDesc(e.target.value)} placeholder="Descripción del producto..." className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs outline-none min-h-[60px] resize-none" />
+                 <div className="flex gap-2">
+                   <div className="w-1/3 relative">
+                      <input type="number" min="1" value={itemQty} onChange={(e) => setItemQty(e.target.value)} placeholder="Cant" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs outline-none text-center font-bold" />
+                   </div>
+                   <div className="flex-1 relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">$</span>
+                      <input type="number" min="0" step="any" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} placeholder="Precio Unit" className="w-full px-3 py-2 pl-7 bg-white border border-slate-200 rounded-lg text-xs outline-none font-bold" />
+                   </div>
+                 </div>
+                 <button onClick={handleAddItem} disabled={!itemDesc.trim() || !selectedZone} className="w-full mt-2 py-2.5 text-white rounded-lg text-xs font-black transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: BRAND_COLOR }}>
+                   {clientData.multipleOptions 
+                     ? `AGREGAR A ${(clientData.quotationOptions?.find(o => o.id === activeOptionId)?.name || 'OPCIÓN').toUpperCase()}` 
+                     : 'AGREGAR PRODUCTO'}
+                 </button>
+              </div>
+            </section>
+
+            {!clientData.multipleOptions && (
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest"><span>{t.discount}</span><div className="h-px bg-slate-100 flex-1"></div></div>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Percent size={14} style={clientData.discountEnabled ? { color: BRAND_COLOR } : { color: '#94a3b8' }} />
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">Habilitar Descuento</span>
                     </div>
-                    <button onClick={handleAddItem} className="w-full py-3 bg-slate-800 hover:bg-black text-white rounded-lg text-xs font-black transition-all">AGREGAR PRODUCTO</button>
-                </div>
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest"><span>{t.discount}</span><div className="h-px bg-slate-100 flex-1"></div></div>
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Percent size={14} style={clientData.discountEnabled ? { color: BRAND_COLOR } : { color: '#94a3b8' }} />
-                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">Habilitar Descuento</span>
-                  </div>
-                  <button 
-                    onClick={() => setClientData({...clientData, discountEnabled: !clientData.discountEnabled})}
-                    className={`w-8 h-4 rounded-full relative transition-all ${clientData.discountEnabled ? 'bg-brand' : 'bg-slate-300'}`}
-                    style={clientData.discountEnabled ? { backgroundColor: BRAND_COLOR } : {}}
-                  >
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${clientData.discountEnabled ? 'left-4.5' : 'left-0.5'}`} />
-                  </button>
-                </div>
-                
-                {clientData.discountEnabled && (
-                  <div className="flex gap-2 animate-in fade-in slide-in-from-top-1">
-                    <select 
-                      value={clientData.discountType} 
-                      onChange={(e) => setClientData({...clientData, discountType: e.target.value as 'percentage' | 'fixed'})}
-                      className="w-24 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none uppercase"
+                    <button 
+                      onClick={() => setClientData({...clientData, discountEnabled: !clientData.discountEnabled})}
+                      className={`w-8 h-4 rounded-full relative transition-all ${clientData.discountEnabled ? 'bg-brand' : 'bg-slate-300'}`}
+                      style={clientData.discountEnabled ? { backgroundColor: BRAND_COLOR } : {}}
                     >
-                      <option value="percentage">%</option>
-                      <option value="fixed">Fijo</option>
-                    </select>
-                    <input 
-                      type="number" 
-                      value={clientData.discountValue} 
-                      onChange={(e) => setClientData({...clientData, discountValue: e.target.value})} 
-                      placeholder="Valor" 
-                      className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" 
-                    />
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${clientData.discountEnabled ? 'left-4.5' : 'left-0.5'}`} />
+                    </button>
                   </div>
-                )}
-              </div>
-            </section>
+                  
+                  {clientData.discountEnabled && (
+                    <div className="flex gap-2 animate-in fade-in slide-in-from-top-1">
+                      <select 
+                        value={clientData.discountType} 
+                        onChange={(e) => setClientData({...clientData, discountType: e.target.value as 'percentage' | 'fixed'})}
+                        className="w-24 px-2 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none uppercase"
+                      >
+                        <option value="percentage">%</option>
+                        <option value="fixed">Fijo</option>
+                      </select>
+                      <input 
+                        type="number" 
+                        step="any"
+                        value={clientData.discountValue} 
+                        onChange={(e) => setClientData({...clientData, discountValue: e.target.value})} 
+                        placeholder="Valor" 
+                        className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" 
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             <section className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest"><span>Configuración de Secciones</span><div className="h-px bg-slate-100 flex-1"></div></div>
@@ -389,6 +570,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {isSectionsOpen && (
                         <div className="px-2 pb-3 space-y-1 border-t border-slate-200 pt-2">
                             <ToggleItem label="Info. Cliente" icon={User} value={clientData.showClientInfo} onChange={(val) => setClientData({...clientData, showClientInfo: val})} />
+                            <ToggleItem label="Totales" icon={Calculator} value={clientData.showTotals} onChange={(val) => setClientData({...clientData, showTotals: val})} />
                             <ToggleItem label="Cuenta de Pago" icon={CreditCard} value={clientData.showPaymentInfo} onChange={(val) => setClientData({...clientData, showPaymentInfo: val})} />
                             <ToggleItem label="Condiciones" icon={ScrollText} value={clientData.showConditions} onChange={(val) => setClientData({...clientData, showConditions: val})} />
                             

@@ -1,5 +1,5 @@
 
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ClientData, QuotationItem, Attachment } from '../types';
 import { Trash2, CreditCard, ScrollText, MessageSquare } from 'lucide-react';
 
@@ -101,44 +101,9 @@ const Preview: React.FC<PreviewProps> = ({
 
   const t = UI_TRANSLATIONS[clientData.language] || UI_TRANSLATIONS['Español'];
 
-  const hierarchicalItems = useMemo(() => {
-    const groups: Record<string, Record<string, QuotationItem[]>> = {};
-    items.forEach(item => {
-      const parts = item.zone.split('>');
-      const mainZone = parts[0].trim().toUpperCase();
-      const subZone = parts.length > 1 ? parts[1].trim().toUpperCase() : 'GENERAL';
-      if (!groups[mainZone]) groups[mainZone] = {};
-      if (!groups[mainZone][subZone]) groups[mainZone][subZone] = [];
-      groups[mainZone][subZone].push(item);
-    });
-    return groups;
-  }, [items]);
-
-  const sortedMainZones = useMemo(() => {
-    const getFloorNum = (s: string) => {
-      const match = s.match(/\d+/);
-      if (match) return parseInt(match[0], 10);
-      return -1;
-    };
-
-    return Object.entries(hierarchicalItems).sort(([zoneA], [zoneB]) => {
-      const numA = getFloorNum(zoneA);
-      const numB = getFloorNum(zoneB);
-      if (numA !== numB) return numA - numB;
-      return zoneA.localeCompare(zoneB);
-    });
-  }, [hierarchicalItems]);
-
-  const subtotalNeto = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  let discountAmount = 0;
-  const discountVal = typeof clientData.discountValue === 'string' ? parseFloat(clientData.discountValue) || 0 : clientData.discountValue;
-  if (clientData.discountEnabled) {
-      discountAmount = clientData.discountType === 'percentage' ? subtotalNeto * (discountVal / 100) : discountVal;
-  }
-  const totalAPagar = Math.max(0, subtotalNeto - discountAmount);
-
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' ' + clientData.currency;
+    const fractionDigits = clientData.includeDecimals ? 2 : 0;
+    return amount.toLocaleString('en-US', { style: 'decimal', minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }) + ' ' + clientData.currency;
   };
 
   const containerStyles: React.CSSProperties = {
@@ -396,101 +361,156 @@ const Preview: React.FC<PreviewProps> = ({
         )}
       </div>
 
-      {/* PRODUCTS ORGANIZADOS */}
-      <div className="space-y-14">
-        {sortedMainZones.map(([mainZone, subZones]) => (
-          <div key={mainZone} className="section-zone">
-            {!['GENERAL', 'ALGEMEEN'].includes(mainZone) && (
-              <div className="mb-6">
-                <h2 className="text-2xl font-brand font-bold uppercase leading-none tracking-tight" style={{ color: clientData.documentTitleColor }}>{mainZone}</h2>
-                <div className="w-full h-[1px] mt-2 opacity-20" style={{ backgroundColor: clientData.documentTitleColor }}></div>
-              </div>
-            )}
-            <div className="space-y-10">
-              {Object.entries(subZones).map(([subZone, zoneItems]) => {
-                const subtotal = (zoneItems as QuotationItem[]).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-                return (
-                  <div key={subZone} className="subzone-container w-full">
-                    {!['GENERAL', 'ALGEMEEN'].includes(subZone) && (
-                      <div className="mb-4 border-b border-gray-100 pb-2">
-                        <h3 className="text-lg font-bold text-gray-600 uppercase tracking-tight">{subZone}</h3>
-                      </div>
-                    )}
-                    <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                      <thead>
-                        <tr className="text-white" style={{ backgroundColor: clientData.documentTitleColor }}>
-                          <th className="py-4 px-5 text-left font-black uppercase text-[10px] tracking-widest" style={{ width: '55%', fontFamily: 'Turismo CF, sans-serif' }}>{t.desc}</th>
-                          <th className="py-4 px-1 text-center font-black uppercase text-[10px] tracking-widest" style={{ width: '10%', fontFamily: 'Turismo CF, sans-serif' }}>{t.qty}</th>
-                          <th className="py-4 px-1 text-center font-black uppercase text-[10px] tracking-widest" style={{ width: '15%', fontFamily: 'Turismo CF, sans-serif' }}>{t.unit}</th>
-                          <th className="py-4 px-5 text-right font-black uppercase text-[10px] tracking-widest" style={{ width: '20%', fontFamily: 'Turismo CF, sans-serif' }}>{t.itemTotal}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(zoneItems as QuotationItem[]).map((item) => (
-                          <tr key={item.id} className="border-b border-gray-50">
-                            <td className="py-5 px-5 align-top">
-                              {isPrintVersion ? (
-                                <div style={textStyle} className="text-[14px] font-medium text-gray-800 leading-snug">{item.description}</div>
-                              ) : (
-                                <div className="flex flex-col group relative">
-                                  <AutoResizeTextarea
-                                    value={item.description}
-                                    onChange={(val) => onUpdateItem?.(item.id, 'description', val)}
-                                    className="text-[14px] font-medium leading-snug"
-                                  />
-                                  <button onClick={() => onRemoveItem?.(item.id)} className="absolute -left-10 top-0 text-red-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-5 px-1 text-center align-top font-bold text-gray-700 text-sm">{item.quantity}</td>
-                            <td className="py-5 px-1 text-center align-top font-bold text-gray-700 text-sm">{formatCurrency(item.unitPrice)}</td>
-                            <td className="py-5 px-5 text-right font-black text-gray-900 align-top text-sm">{formatCurrency(item.quantity * item.unitPrice)}</td>
-                          </tr>
-                        ))}
-                        <tr className="bg-slate-50 border-t border-gray-100">
-                          <td colSpan={3} className="py-4 px-5 text-left font-black text-gray-400 uppercase text-[9px] tracking-widest">{t.subtotal} {subZone}:</td>
-                          <td className="py-4 px-5 text-right font-black text-gray-900 text-base">{formatCurrency(subtotal)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* PRODUCTS ORGANIZADOS & TOTALS BY OPTION */}
+      <div className="space-y-20">
+        {(clientData.multipleOptions && clientData.quotationOptions && clientData.quotationOptions.length > 0
+          ? clientData.quotationOptions 
+          : [{ id: 'default', name: '', discountEnabled: clientData.discountEnabled, discountType: clientData.discountType, discountValue: clientData.discountValue }]
+        ).map((option) => {
+          const isFirstOption = clientData.quotationOptions?.[0]?.id === option.id;
+          const optItems = clientData.multipleOptions 
+            ? items.filter(i => i.optionId === option.id || (!i.optionId && isFirstOption)) 
+            : items;
+          
+          if (clientData.multipleOptions && optItems.length === 0) return null;
 
-      {/* TOTALS */}
-      <table className="w-full mt-16" style={{ borderCollapse: 'collapse' }}>
-        <tbody>
-          <tr>
-            <td className="w-1/2"></td>
-            <td className="w-1/2 align-top">
-              <div style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD', padding: '35px', borderRadius: '16px' }}>
-                <table className="w-full border-collapse">
+          // Group by zone
+          const groups: Record<string, Record<string, QuotationItem[]>> = {};
+          optItems.forEach(item => {
+            const parts = item.zone.split('>');
+            const mainZone = parts[0].trim().toUpperCase();
+            const subZone = parts.length > 1 ? parts.slice(1).join(' > ').trim().toUpperCase() : 'GENERAL';
+            if (!groups[mainZone]) groups[mainZone] = {};
+            if (!groups[mainZone][subZone]) groups[mainZone][subZone] = [];
+            groups[mainZone][subZone].push(item);
+          });
+
+          const getFloorNum = (s: string) => {
+            const match = s.match(/\d+/);
+            if (match) return parseInt(match[0], 10);
+            return -1;
+          };
+          const sortedMainZonesOpt = Object.entries(groups).sort(([zoneA], [zoneB]) => {
+            const numA = getFloorNum(zoneA);
+            const numB = getFloorNum(zoneB);
+            if (numA !== numB) return numA - numB;
+            return zoneA.localeCompare(zoneB);
+          });
+
+          const optSubtotal = optItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+          let optDiscountAmount = 0;
+          const optDiscountVal = typeof option.discountValue === 'string' ? parseFloat(option.discountValue) || 0 : option.discountValue;
+          if (option.discountEnabled) {
+              optDiscountAmount = option.discountType === 'percentage' ? optSubtotal * (optDiscountVal / 100) : optDiscountVal;
+          }
+          const optTotal = Math.max(0, optSubtotal - optDiscountAmount);
+
+          return (
+            <div key={option.id} className="option-container flex flex-col space-y-14">
+              {clientData.multipleOptions && (
+                 <div className="flex items-center gap-4 py-4 px-6 bg-slate-50 border-l-8 rounded-xl w-full" style={{ borderLeftColor: clientData.documentTitleColor }}>
+                    <h2 className="text-3xl font-brand font-black text-slate-800 uppercase leading-none">{option.name}</h2>
+                 </div>
+              )}
+
+              {sortedMainZonesOpt.map(([mainZone, subZones]) => (
+                <div key={mainZone} className="section-zone">
+                  {!['GENERAL', 'ALGEMEEN'].includes(mainZone) && (
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-brand font-bold uppercase leading-none tracking-tight" style={{ color: clientData.documentTitleColor }}>{mainZone}</h2>
+                      <div className="w-full h-[1px] mt-2 opacity-20" style={{ backgroundColor: clientData.documentTitleColor }}></div>
+                    </div>
+                  )}
+                  <div className="space-y-10">
+                    {Object.entries(subZones).map(([subZone, zoneItems]) => {
+                      const subtotal = (zoneItems as QuotationItem[]).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+                      return (
+                        <div key={subZone} className="subzone-container w-full">
+                          {!['GENERAL', 'ALGEMEEN'].includes(subZone) && (
+                            <div className="mb-4 border-b border-gray-100 pb-2">
+                              <h3 className="text-lg font-bold text-gray-600 uppercase tracking-tight">{subZone}</h3>
+                            </div>
+                          )}
+                          <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                            <thead>
+                              <tr className="text-white" style={{ backgroundColor: clientData.documentTitleColor }}>
+                                <th className="py-4 px-5 text-left font-black uppercase text-[10px] tracking-widest" style={{ width: '55%', fontFamily: 'Turismo CF, sans-serif' }}>{t.desc}</th>
+                                <th className="py-4 px-1 text-center font-black uppercase text-[10px] tracking-widest" style={{ width: '10%', fontFamily: 'Turismo CF, sans-serif' }}>{t.qty}</th>
+                                <th className="py-4 px-1 text-center font-black uppercase text-[10px] tracking-widest" style={{ width: '15%', fontFamily: 'Turismo CF, sans-serif' }}>{t.unit}</th>
+                                <th className="py-4 px-5 text-right font-black uppercase text-[10px] tracking-widest" style={{ width: '20%', fontFamily: 'Turismo CF, sans-serif' }}>{t.itemTotal}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(zoneItems as QuotationItem[]).map((item) => (
+                                <tr key={item.id} className="border-b border-gray-50">
+                                  <td className="py-5 px-5 align-top">
+                                    {isPrintVersion ? (
+                                      <div style={textStyle} className="text-[14px] font-medium text-gray-800 leading-snug">{item.description}</div>
+                                    ) : (
+                                      <div className="flex flex-col group relative">
+                                        <AutoResizeTextarea
+                                          value={item.description}
+                                          onChange={(val) => onUpdateItem?.(item.id, 'description', val)}
+                                          className="text-[14px] font-medium leading-snug"
+                                        />
+                                        <button onClick={() => onRemoveItem?.(item.id)} className="absolute -left-10 top-0 text-red-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-5 px-1 text-center align-top font-bold text-gray-700 text-sm">{item.quantity}</td>
+                                  <td className="py-5 px-1 text-center align-top font-bold text-gray-700 text-sm whitespace-nowrap">{formatCurrency(item.unitPrice)}</td>
+                                  <td className="py-5 px-5 text-right font-black text-gray-900 align-top text-sm whitespace-nowrap">{formatCurrency(item.quantity * item.unitPrice)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-slate-50 border-t border-gray-100">
+                                <td colSpan={3} className="py-4 px-5 text-left font-black text-gray-400 uppercase text-[9px] tracking-widest">{t.subtotal} {subZone}:</td>
+                                <td className="py-4 px-5 text-right font-black text-gray-900 text-base whitespace-nowrap">{formatCurrency(subtotal)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* TOTALS */}
+              {clientData.showTotals && (
+                <table className="w-full mt-16" style={{ borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
-                      <td className="text-[11px] font-black text-blue-600 uppercase tracking-widest pb-3">{t.subtotalNet}</td>
-                      <td className="text-right text-xl font-bold text-slate-800 pb-3">{formatCurrency(subtotalNeto)}</td>
-                    </tr>
-                    {clientData.discountEnabled && (
-                      <tr className="border-b border-blue-100">
-                        <td className="text-[11px] font-black uppercase tracking-widest text-red-500 pb-4">{t.discount} {clientData.discountType === 'percentage' ? `(${clientData.discountValue}%)` : ''}</td>
-                        <td className="text-right text-xl font-bold text-red-500 pb-4">-{formatCurrency(discountAmount)}</td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td className="text-sm font-black text-gray-900 uppercase tracking-widest pt-5">{t.total}</td>
-                      <td className="text-right text-4xl font-black text-gray-900 pt-5 leading-none">{formatCurrency(totalAPagar)}</td>
+                      <td className="w-1/2"></td>
+                      <td className="w-1/2 align-top">
+                        <div style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD', padding: '35px', borderRadius: '16px' }}>
+                          <table className="w-full border-collapse">
+                            <tbody>
+                              <tr>
+                                <td className="text-[11px] font-black text-blue-600 uppercase tracking-widest pb-3">{t.subtotalNet}</td>
+                                <td className="text-right text-xl font-bold text-slate-800 pb-3 whitespace-nowrap">{formatCurrency(optSubtotal)}</td>
+                              </tr>
+                              {option.discountEnabled && (
+                                <tr className="border-b border-blue-100">
+                                  <td className="text-[11px] font-black uppercase tracking-widest text-red-500 pb-4">{t.discount} {option.discountType === 'percentage' ? `(${option.discountValue}%)` : ''}</td>
+                                  <td className="text-right text-xl font-bold text-red-500 pb-4 whitespace-nowrap">-{formatCurrency(optDiscountAmount)}</td>
+                                </tr>
+                              )}
+                              <tr>
+                                <td className="text-sm font-black text-gray-900 uppercase tracking-widest pt-5">{t.total}</td>
+                                <td className="text-right text-4xl font-black text-gray-900 pt-5 leading-none whitespace-nowrap">{formatCurrency(optTotal)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {/* FOOTER EDITABLE BLOCKS */}
       <div className="mt-20 space-y-6">
