@@ -162,7 +162,33 @@ function App() {
       message: '¿Cargar esta cotización? Se abrirá en el editor y se perderán los cambios actuales no guardados.',
       onConfirm: () => {
         const loadedAttachments = record.data.attachments || [];
-        setClientData(record.data.clientData || {} as any);
+        
+        // Merge with defaults to prevent crashing on old records missing newer fields like discountEnabled or quotationOptions
+        const baseClientData: Partial<ClientData> = {
+          name: '', date: new Date().toISOString().split('T')[0], quotationNo: '',
+          quotationNoLabel: TEXT_TEMPLATES['Español'].qLabel,
+          language: 'Español', currency: 'USD', includeDecimals: true, terms: TEXT_TEMPLATES['Español'].terms,
+          signatureText: 'Autorizado por (InnovaDeko)', discountEnabled: false, discountType: 'percentage', discountValue: 0,
+          showClientId: false, clientIdType: 'Documento', clientIdValue: '',
+          introText: TEXT_TEMPLATES['Español'].intro,
+          companyName: safeGetItem('companyName') || 'INNOVADEKO',
+          companySubtitle: safeGetItem('companySubtitle') || TEXT_TEMPLATES['Español'].subtitle,
+          documentTitle: TITLE_TRANSLATIONS['Español'], showDocumentTitle: true,
+          documentTitleColor: BRAND_COLOR, documentTitleAlign: 'center', documentTitleFont: 'Syncopate', documentTitleFontSize: 48,
+          companyNameFont: 'Syncopate', companyNameFontSize: 24, companySubtitleFont: 'Syncopate', companySubtitleFontSize: 11,
+          showPaymentInfo: true, paymentInfoText: safeGetItem('paymentInfoText') || 'TÉRMINOS DE PAGO:\n• 50% de anticipo para iniciar.\n• 50% al finalizar la obra.',
+          showObservations: false, observationsText: safeGetItem('observationsText') || '',
+          showConditions: true, showClientSignature: false, showSellerSignature: true,
+          clientSignatureText: 'FIRMA DEL CLIENTE\n', showClientInfo: true, showTotals: true,
+          multipleOptions: false,
+          quotationOptions: [
+            { id: 'opt1', name: 'Opción 1', discountEnabled: false, discountType: 'percentage', discountValue: 0 },
+            { id: 'opt2', name: 'Opción 2', discountEnabled: false, discountType: 'percentage', discountValue: 0 }
+          ]
+        };
+        const mergedClientData = { ...baseClientData, ...(record.data.clientData || {}) } as ClientData;
+        
+        setClientData(mergedClientData);
         setItems(record.data.items || []);
         setAttachments(loadedAttachments);
         setZones(record.data.zones || []);
@@ -170,7 +196,7 @@ function App() {
         if (record.data.companyLogo) safeSetItem('companyLogo', record.data.companyLogo);
         
         lastSavedSnapshotRef.current = JSON.stringify({
-          clientData: record.data.clientData || {},
+          clientData: mergedClientData,
           items: record.data.items || [],
           attachments: loadedAttachments.map(a => ({ id: a.id, title: a.title, desc: a.description, preview: a.previewUrl })),
           zones: record.data.zones || [],

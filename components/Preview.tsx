@@ -377,8 +377,8 @@ const Preview: React.FC<PreviewProps> = ({
           // Group by zone
           const groups: Record<string, Record<string, QuotationItem[]>> = {};
           optItems.forEach(item => {
-            const parts = item.zone.split('>');
-            const mainZone = parts[0].trim().toUpperCase();
+            const parts = (item.zone || '').split('>');
+            const mainZone = parts[0] ? parts[0].trim().toUpperCase() : 'GENERAL';
             const subZone = parts.length > 1 ? parts.slice(1).join(' > ').trim().toUpperCase() : 'GENERAL';
             if (!groups[mainZone]) groups[mainZone] = {};
             if (!groups[mainZone][subZone]) groups[mainZone][subZone] = [];
