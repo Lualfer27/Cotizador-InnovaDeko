@@ -161,19 +161,20 @@ function App() {
       isOpen: true,
       message: '¿Cargar esta cotización? Se abrirá en el editor y se perderán los cambios actuales no guardados.',
       onConfirm: () => {
-        setClientData(record.data.clientData);
-        setItems(record.data.items);
-        setAttachments(record.data.attachments);
-        setZones(record.data.zones);
-        setCompanyLogo(record.data.companyLogo);
+        const loadedAttachments = record.data.attachments || [];
+        setClientData(record.data.clientData || {} as any);
+        setItems(record.data.items || []);
+        setAttachments(loadedAttachments);
+        setZones(record.data.zones || []);
+        setCompanyLogo(record.data.companyLogo || null);
         if (record.data.companyLogo) safeSetItem('companyLogo', record.data.companyLogo);
         
         lastSavedSnapshotRef.current = JSON.stringify({
-          clientData: record.data.clientData,
-          items: record.data.items,
-          attachments: record.data.attachments.map(a => ({ id: a.id, title: a.title, desc: a.description, preview: a.previewUrl })),
-          zones: record.data.zones,
-          companyLogo: record.data.companyLogo
+          clientData: record.data.clientData || {},
+          items: record.data.items || [],
+          attachments: loadedAttachments.map(a => ({ id: a.id, title: a.title, desc: a.description, preview: a.previewUrl })),
+          zones: record.data.zones || [],
+          companyLogo: record.data.companyLogo || null
         });
 
         setActiveTab('edit');
